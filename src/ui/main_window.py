@@ -38,6 +38,9 @@ from ..core.api_client import download_from_api
 from ..core.discord_client import fetch_server_channels, fetch_channel_messages 
 from ..core.manager import DownloadManager
 from ..core.nhentai_client import fetch_nhentai_gallery
+from ..core.bunkr_client import fetch_bunkr_data
+from ..core.saint2_client import fetch_saint2_data 
+from ..core.erome_client import fetch_erome_data
 from .assets import get_app_icon_object
 from ..config.constants import *
 from ..utils.file_utils import KNOWN_NAMES, clean_folder_name
@@ -283,19 +286,15 @@ class DownloaderApp (QWidget ):
         self.download_location_label_widget = None
         self.remove_from_filename_label_widget = None
         self.skip_words_label_widget = None
-        self.setWindowTitle("Kemono Downloader v6.5.0")
+        self.setWindowTitle("Kemono Downloader v7.0.0")
         setup_ui(self)
         self._connect_signals()
-        self.log_signal.emit("ℹ️ Local API server functionality has been removed.")
-        self.log_signal.emit("ℹ️ 'Skip Current File' button has been removed.")
         if hasattr(self, 'character_input'):
             self.character_input.setToolTip(self._tr("character_input_tooltip", "Enter character names (comma-separated)..."))
         self.log_signal.emit(f"ℹ️ Manga filename style loaded: '{self.manga_filename_style}'")
         self.log_signal.emit(f"ℹ️ Skip words scope loaded: '{self.skip_words_scope}'")
         self.log_signal.emit(f"ℹ️ Character filter scope set to default: '{self.char_filter_scope}'")
         self.log_signal.emit(f"ℹ️ Multi-part download defaults to: {'Enabled' if self.allow_multipart_download_setting else 'Disabled'}")
-        self.log_signal.emit(f"ℹ️ Cookie text defaults to: Empty on launch")
-        self.log_signal.emit(f"ℹ️ 'Use Cookie' setting defaults to: Disabled on launch")
         self.log_signal.emit(f"ℹ️ Scan post content for images defaults to: {'Enabled' if self.scan_content_images_setting else 'Disabled'}")
         self.log_signal.emit(f"ℹ️ Application language loaded: '{self.current_selected_language.upper()}' (UI may not reflect this yet).")
         self._retranslate_main_ui()
@@ -304,6 +303,18 @@ class DownloaderApp (QWidget ):
         self._load_saved_cookie_settings() 
         self._update_button_states_and_connections()
         self._check_for_interrupted_session()
+        self._cleanup_after_update() 
+
+    def _cleanup_after_update(self):
+        """Deletes the old executable after a successful update."""
+        try:
+            app_path = sys.executable
+            old_app_path = os.path.join(os.path.dirname(app_path), "Kemono.Downloader.exe.old")
+            if os.path.exists(old_app_path):
+                os.remove(old_app_path)
+                self.log_signal.emit("ℹ️ Cleaned up old application file after update.")
+        except Exception as e:
+            self.log_signal.emit(f"⚠️ Could not remove old application file: {e}")
 
     def _apply_theme_and_restart_prompt(self):
         """Applies the theme and prompts the user to restart."""
@@ -925,7 +936,7 @@ class DownloaderApp (QWidget ):
         if hasattr (self ,'use_cookie_checkbox'):
             self .use_cookie_checkbox .toggled .connect (self ._update_cookie_input_visibility )
         if hasattr (self ,'link_input'):
-            self .link_input .textChanged .connect (self ._sync_queue_with_link_input )
+            self.link_input.textChanged.connect(self._update_ui_for_url_change)
             self.link_input.textChanged.connect(self._update_contextual_ui_elements) 
             self.link_input.textChanged.connect(self._update_button_states_and_connections)
         if hasattr(self, 'discord_scope_toggle_button'):
@@ -3125,15 +3136,75 @@ class DownloaderApp (QWidget ):
         if total_posts >0 or processed_posts >0 :
             self .file_progress_label .setText ("")
 
+    def _set_ui_for_specialized_downloader(self, is_specialized):
+        """Disables or enables UI elements for non-standard downloaders."""
+        widgets_to_disable = [
+            self.page_range_label, self.start_page_input, self.to_label, self.end_page_input,
+            self.character_filter_widget, self.skip_words_input, self.skip_scope_toggle_button,
+            self.remove_from_filename_input, self.radio_images, self.radio_videos,
+            self.radio_only_archives, self.radio_only_links, self.radio_only_audio, self.radio_more,
+            self.skip_zip_checkbox, self.download_thumbnails_checkbox, self.compress_images_checkbox,
+            self.use_subfolders_checkbox, self.use_subfolder_per_post_checkbox,
+            self.scan_content_images_checkbox, self.external_links_checkbox, self.manga_mode_checkbox,
+            self.use_cookie_checkbox, self.keep_duplicates_checkbox, self.date_prefix_checkbox,
+            self.manga_rename_toggle_button, self.manga_date_prefix_input,
+            self.multipart_toggle_button, self.custom_folder_input, self.custom_folder_label,
+            self.discord_scope_toggle_button, self.save_discord_as_pdf_btn
+        ]
+
+        enable_state = not is_specialized
+
+        for widget in widgets_to_disable:
+            if widget:
+                widget.setEnabled(enable_state)
+        
+        # When disabling, force 'All' to be checked and disable it too
+        if is_specialized and self.radio_all:
+            self.radio_all.setChecked(True)
+            self.radio_all.setEnabled(False)
+        elif self.radio_all:
+            self.radio_all.setEnabled(True)
+
+        # Re-run standard UI logic when re-enabling to restore correct states
+        if enable_state:
+            self._update_all_ui_states()
+
+    def _update_all_ui_states(self):
+        """A single function to call all UI update methods to restore state."""
+        is_manga_checked = self.manga_mode_checkbox.isChecked() if self.manga_mode_checkbox else False
+        is_subfolder_checked = self.use_subfolders_checkbox.isChecked() if self.use_subfolders_checkbox else False
+        is_cookie_checked = self.use_cookie_checkbox.isChecked() if self.use_cookie_checkbox else False
+        
+        self.update_ui_for_manga_mode(is_manga_checked)
+        self.update_custom_folder_visibility()
+        self.update_page_range_enabled_state()
+        if self.radio_group.checkedButton():
+             self._handle_filter_mode_change(self.radio_group.checkedButton(), True)
+        self.update_ui_for_subfolders(is_subfolder_checked)
+        self._update_cookie_input_visibility(is_cookie_checked)
+
     def _update_contextual_ui_elements(self, text=""):
         """Shows or hides UI elements based on the URL, like the Discord scope button."""
         if not hasattr(self, 'discord_scope_toggle_button'): return
+        
         url_text = self.link_input.text().strip()
         service, _, _ = extract_post_info(url_text) 
+        
+        # Handle specialized downloaders (Bunkr, nhentai)
+        is_saint2 = 'saint2.su' in url_text or 'saint2.pk' in url_text
+        is_erome = 'erome.com' in url_text 
+        is_specialized = service in ['bunkr', 'nhentai'] or is_saint2 or is_erome 
+        self._set_ui_for_specialized_downloader(is_specialized)
+
+        # Handle Discord UI
         is_discord = (service == 'discord')
         self.discord_scope_toggle_button.setVisible(is_discord)
-        if is_discord: self._update_discord_scope_button_text()
-        else: self.download_btn.setText(self._tr("start_download_button_text", "⬇️ Start Download"))
+        self.save_discord_as_pdf_btn.setVisible(is_discord)
+
+        if is_discord: 
+            self._update_discord_scope_button_text()
+        elif not is_specialized: # Don't change button text for specialized downloaders
+             self.download_btn.setText(self._tr("start_download_button_text", "⬇️ Start Download"))
 
     def _update_discord_scope_button_text(self):
         """Updates the text of the discord scope button and the main download button."""
@@ -3157,8 +3228,8 @@ class DownloaderApp (QWidget ):
             self._start_download_of_fetched_posts()
             return True
 
-        self.finish_lock = threading.Lock() 
-        self.is_finishing = False                  
+        self.finish_lock = threading.Lock()
+        self.is_finishing = False
         if self.active_update_profile:
             if not self.new_posts_for_update:
                 return self._check_for_updates()
@@ -3180,13 +3251,13 @@ class DownloaderApp (QWidget ):
 
         processed_post_ids_for_restore = []
         manga_counters_for_restore = None
-        start_offset_for_restore = 0 
+        start_offset_for_restore = 0
 
         if is_restore and self.interrupted_session_data:
             self.log_signal.emit("   Restoring session state...")
             download_state = self.interrupted_session_data.get("download_state", {})
             processed_post_ids_for_restore = download_state.get("processed_post_ids", [])
-            start_offset_for_restore = download_state.get("last_processed_offset", 0) 
+            start_offset_for_restore = download_state.get("last_processed_offset", 0)
             restored_hashes = download_state.get("successfully_downloaded_hashes", [])
             if restored_hashes:
                 with self.downloaded_file_hashes_lock:
@@ -3195,7 +3266,7 @@ class DownloaderApp (QWidget ):
             manga_counters_for_restore = download_state.get("manga_counters")
             if processed_post_ids_for_restore:
                 self.log_signal.emit(f"   Will skip {len(processed_post_ids_for_restore)} already processed posts.")
-            if start_offset_for_restore > 0: 
+            if start_offset_for_restore > 0:
                 self.log_signal.emit(f"   Resuming fetch from page offset: {start_offset_for_restore}")
             if manga_counters_for_restore:
                 self.log_signal.emit(f"   Restoring manga counters: {manga_counters_for_restore}")
@@ -3218,7 +3289,66 @@ class DownloaderApp (QWidget ):
 
         api_url = direct_api_url if direct_api_url else self.link_input.text().strip()
 
-        # --- NEW: NHENTAI BATCH DOWNLOAD LOGIC ---
+        # --- START: MOVED AND CORRECTED LOGIC ---
+        # This block is moved to run before any special URL checks.
+        main_ui_download_dir = self.dir_input.text().strip()
+        extract_links_only = (self.radio_only_links and self.radio_only_links.isChecked())
+        effective_output_dir_for_run = ""
+
+        if override_output_dir:
+            if not main_ui_download_dir:
+                QMessageBox.critical(self, "Configuration Error",
+                                     "The main 'Download Location' must be set in the UI "
+                                     "before downloading favorites with 'Artist Folders' scope.")
+                if self.is_processing_favorites_queue:
+                    self.log_signal.emit(f"❌ Favorite download for '{api_url}' skipped: Main download directory not set.")
+                return False
+
+            if not os.path.isdir(main_ui_download_dir):
+                QMessageBox.critical(self, "Directory Error",
+                                     f"The main 'Download Location' ('{main_ui_download_dir}') "
+                                     "does not exist or is not a directory. Please set a valid one for 'Artist Folders' scope.")
+                if self.is_processing_favorites_queue:
+                    self.log_signal.emit(f"❌ Favorite download for '{api_url}' skipped: Main download directory invalid.")
+                return False
+            effective_output_dir_for_run = os.path.normpath(override_output_dir)
+        else:
+            is_special_downloader = 'saint2.su' in api_url or 'saint2.pk' in api_url or 'nhentai.net' in api_url or 'bunkr' in api_url or 'erome.com' in api_url
+            
+            if not extract_links_only and not main_ui_download_dir:
+                QMessageBox.critical(self, "Input Error", "Download Directory is required.")
+                return False
+
+            if not extract_links_only and main_ui_download_dir and not os.path.isdir(main_ui_download_dir):
+                reply = QMessageBox.question(self, "Create Directory?",
+                                             f"The directory '{main_ui_download_dir}' does not exist.\nCreate it now?",
+                                             QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+                if reply == QMessageBox.Yes:
+                    try:
+                        os.makedirs(main_ui_download_dir, exist_ok=True)
+                        self.log_signal.emit(f"ℹ️ Created directory: {main_ui_download_dir}")
+                    except Exception as e:
+                        QMessageBox.critical(self, "Directory Error", f"Could not create directory: {e}")
+                        return False
+                else:
+                    self.log_signal.emit("❌ Download cancelled: Output directory does not exist and was not created.")
+                    return False
+            effective_output_dir_for_run = os.path.normpath(main_ui_download_dir) if main_ui_download_dir else ""
+
+        if 'erome.com' in api_url:
+            self.log_signal.emit("ℹ️ Erome.com URL detected. Starting dedicated Erome download.")
+            self.set_ui_enabled(False)
+
+            self.download_thread = EromeDownloadThread(api_url, effective_output_dir_for_run, self)
+            self.download_thread.progress_signal.connect(self.handle_main_log)
+            self.download_thread.file_progress_signal.connect(self.update_file_progress_display)
+            self.download_thread.finished_signal.connect(
+                lambda dl, skip, cancelled: self.download_finished(dl, skip, cancelled, [])
+            )
+            self.download_thread.start()
+            self._update_button_states_and_connections()
+            return True
+
         if 'nhentai.net' in api_url and not re.search(r'/g/(\d+)', api_url):
             self.log_signal.emit("=" * 40)
             self.log_signal.emit("🚀 nhentai batch download mode detected.")
@@ -3235,7 +3365,6 @@ class DownloaderApp (QWidget ):
             try:
                 with open(nhentai_txt_path, 'r', encoding='utf-8') as f:
                     for line in f:
-                        # Find all URLs in the line (handles comma separation or just spaces)
                         found_urls = re.findall(r'https?://nhentai\.net/g/\d+/?', line)
                         if found_urls:
                             urls_to_download.extend(found_urls)
@@ -3261,49 +3390,65 @@ class DownloaderApp (QWidget ):
             if not self.is_processing_favorites_queue:
                 self._process_next_favorite_download()
             return True
-        # --- END NEW LOGIC ---
 
-        main_ui_download_dir = self.dir_input.text().strip()
-        extract_links_only = (self.radio_only_links and self.radio_only_links.isChecked())
-        effective_output_dir_for_run = ""
+        is_saint2_url = 'saint2.su' in api_url or 'saint2.pk' in api_url
+        if is_saint2_url:
+            # First, check if it's the batch command. If so, do nothing here and let the next block handle it.
+            if api_url.strip().lower() != 'saint2.su':
+                self.log_signal.emit("ℹ️ Saint2.su URL detected. Starting dedicated Saint2 download.")
+                self.set_ui_enabled(False)
+                self.download_thread = Saint2DownloadThread(api_url, effective_output_dir_for_run, self)
+                self.download_thread.progress_signal.connect(self.handle_main_log)
+                self.download_thread.file_progress_signal.connect(self.update_file_progress_display)
+                self.download_thread.finished_signal.connect(
+                    lambda dl, skip, cancelled: self.download_finished(dl, skip, cancelled, [])
+                )
+                self.download_thread.start()
+                self._update_button_states_and_connections()
+                return True
 
-        if override_output_dir:
-            if not main_ui_download_dir:
-                QMessageBox.critical(self, "Configuration Error",
-                                     "The main 'Download Location' must be set in the UI "
-                                     "before downloading favorites with 'Artist Folders' scope.")
-                if self.is_processing_favorites_queue:
-                    self.log_signal.emit(f"❌ Favorite download for '{api_url}' skipped: Main download directory not set.")
+        if api_url.strip().lower() == 'saint2.su':
+            self.log_signal.emit("=" * 40)
+            self.log_signal.emit("🚀 Saint2.su batch download mode detected.")
+            
+            saint2_txt_path = os.path.join(self.app_base_dir, "appdata", "saint2.su.txt")
+            self.log_signal.emit(f"   Looking for batch file at: {saint2_txt_path}")
+
+            if not os.path.exists(saint2_txt_path):
+                QMessageBox.warning(self, "File Not Found", f"To use batch mode, create a file named 'saint2.su.txt' in your 'appdata' folder.\n\nPlace one saint2.su URL on each line.")
+                self.log_signal.emit(f"   ❌ 'saint2.su.txt' not found. Aborting batch download.")
                 return False
 
-            if not os.path.isdir(main_ui_download_dir):
-                QMessageBox.critical(self, "Directory Error",
-                                     f"The main 'Download Location' ('{main_ui_download_dir}') "
-                                     "does not exist or is not a directory. Please set a valid one for 'Artist Folders' scope.")
-                if self.is_processing_favorites_queue:
-                    self.log_signal.emit(f"❌ Favorite download for '{api_url}' skipped: Main download directory invalid.")
-                return False
-            effective_output_dir_for_run = os.path.normpath(override_output_dir)
-        else:
-            if not extract_links_only and not main_ui_download_dir:
-                QMessageBox.critical(self, "Input Error", "Download Directory is required when not in 'Only Links' mode.")
+            urls_to_download = []
+            try:
+                with open(saint2_txt_path, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        # Find valid saint2 URLs in the line
+                        found_urls = re.findall(r'https?://saint\d*\.(?:su|pk|cr|to)/(?:a|d|embed)/[^/?#\s]+', line)
+                        if found_urls:
+                            urls_to_download.extend(found_urls)
+            except Exception as e:
+                QMessageBox.critical(self, "File Error", f"Could not read 'saint2.su.txt':\n{e}")
+                self.log_signal.emit(f"   ❌ Error reading 'saint2.su.txt': {e}")
                 return False
 
-            if not extract_links_only and main_ui_download_dir and not os.path.isdir(main_ui_download_dir):
-                reply = QMessageBox.question(self, "Create Directory?",
-                                             f"The directory '{main_ui_download_dir}' does not exist.\nCreate it now?",
-                                             QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
-                if reply == QMessageBox.Yes:
-                    try:
-                        os.makedirs(main_ui_download_dir, exist_ok=True)
-                        self.log_signal.emit(f"ℹ️ Created directory: {main_ui_download_dir}")
-                    except Exception as e:
-                        QMessageBox.critical(self, "Directory Error", f"Could not create directory: {e}")
-                        return False
-                else:
-                    self.log_signal.emit("❌ Download cancelled: Output directory does not exist and was not created.")
-                    return False
-            effective_output_dir_for_run = os.path.normpath(main_ui_download_dir)
+            if not urls_to_download:
+                QMessageBox.information(self, "Empty File", "No valid saint2.su URLs were found in 'saint2.su.txt'.")
+                self.log_signal.emit("   'saint2.su.txt' was found but contained no valid URLs.")
+                return False
+            
+            self.log_signal.emit(f"   Found {len(urls_to_download)} URLs to process.")
+            self.favorite_download_queue.clear()
+            for url in urls_to_download:
+                self.favorite_download_queue.append({
+                    'url': url,
+                    'name': f"saint2.su link from batch",
+                    'type': 'post' # Treat each URL as a single post-like item
+                })
+            
+            if not self.is_processing_favorites_queue:
+                self._process_next_favorite_download()
+            return True
 
         if not is_restore:
             self._create_initial_session_file(api_url, effective_output_dir_for_run, remaining_queue=self.favorite_download_queue)
@@ -3328,26 +3473,24 @@ class DownloaderApp (QWidget ):
 
         self.cancellation_message_logged_this_session = False
         
-        # --- MODIFIED NHENTAI HANDLING ---
-        nhentai_match = re.search(r'nhentai\.net/g/(\d+)', api_url)
-        if nhentai_match:
-            gallery_id = nhentai_match.group(1)
+        service, id1, id2 = extract_post_info(api_url)
+
+        if service == 'nhentai':
+            gallery_id = id1
             self.log_signal.emit("=" * 40)
             self.log_signal.emit(f"🚀 Detected nhentai gallery ID: {gallery_id}")
 
-            output_dir = self.dir_input.text().strip()
-            if not output_dir or not os.path.isdir(output_dir):
+            if not effective_output_dir_for_run or not os.path.isdir(effective_output_dir_for_run):
                 QMessageBox.critical(self, "Input Error", "A valid Download Location is required.")
                 return False
 
             gallery_data = fetch_nhentai_gallery(gallery_id, self.log_signal.emit)
-
             if not gallery_data:
-                QMessageBox.critical(self, "Error", f"Could not retrieve gallery data for ID {gallery_id}. It may not exist or the API is unavailable.")
+                QMessageBox.critical(self, "Error", f"Could not retrieve gallery data for ID {gallery_id}.")
                 return False
 
             self.set_ui_enabled(False)
-            self.download_thread = NhentaiDownloadThread(gallery_data, output_dir, self)
+            self.download_thread = NhentaiDownloadThread(gallery_data, effective_output_dir_for_run, self)
             self.download_thread.progress_signal.connect(self.handle_main_log)
             self.download_thread.finished_signal.connect(
                 lambda dl, skip, cancelled: self.download_finished(dl, skip, cancelled, [])
@@ -3355,9 +3498,20 @@ class DownloaderApp (QWidget ):
             self.download_thread.start()
             self._update_button_states_and_connections()
             return True
-        # --- END MODIFIED HANDLING ---
 
-        service, id1, id2 = extract_post_info(api_url)
+        if service == 'bunkr':
+            self.log_signal.emit("ℹ️ Bunkr URL detected. Starting dedicated Bunkr download.")
+            self.set_ui_enabled(False)
+            
+            self.download_thread = BunkrDownloadThread(id1, effective_output_dir_for_run, self)
+            self.download_thread.progress_signal.connect(self.handle_main_log)
+            self.download_thread.file_progress_signal.connect(self.update_file_progress_display)
+            self.download_thread.finished_signal.connect(
+                lambda dl, skip, cancelled: self.download_finished(dl, skip, cancelled, [])
+            )
+            self.download_thread.start()
+            self._update_button_states_and_connections()
+            return True
 
         if not service or not id1:
             QMessageBox.critical(self, "Input Error", "Invalid or unsupported URL format.")
@@ -4137,6 +4291,79 @@ class DownloaderApp (QWidget ):
         self.is_restore_pending = True
         self.start_download(direct_api_url=restore_url, override_output_dir=restore_dir, is_restore=True)
 
+    def _update_ui_for_url_change(self, text=""):
+        """A single, authoritative function to update all UI states based on the URL."""
+        url_text = self.link_input.text().strip()
+        service, _, _ = extract_post_info(url_text)
+
+        # A list of all widgets that are context-dependent
+        widgets_to_manage = [
+            self.page_range_label, self.start_page_input, self.to_label, self.end_page_input,
+            self.character_filter_widget, self.skip_words_input, self.skip_scope_toggle_button,
+            self.remove_from_filename_input, self.radio_all, self.radio_images, self.radio_videos,
+            self.radio_only_archives, self.radio_only_links, self.radio_only_audio, self.radio_more,
+            self.skip_zip_checkbox, self.download_thumbnails_checkbox, self.compress_images_checkbox,
+            self.use_subfolders_checkbox, self.use_subfolder_per_post_checkbox,
+            self.scan_content_images_checkbox, self.external_links_checkbox, self.manga_mode_checkbox,
+            self.use_cookie_checkbox, self.keep_duplicates_checkbox, self.date_prefix_checkbox,
+            self.manga_rename_toggle_button, self.manga_date_prefix_input,
+            self.multipart_toggle_button, self.custom_folder_input, self.custom_folder_label
+        ]
+
+        # --- Logic for Specialized Downloaders (Bunkr, nhentai) ---
+        if service in ['bunkr', 'nhentai']:
+            self.progress_log_label.setText("📜 Progress Log:")
+            self.download_btn.setText(self._tr("start_download_button_text", "⬇️ Start Download"))
+            
+            # Disable all complex settings
+            for widget in widgets_to_manage:
+                if widget:
+                    widget.setEnabled(False)
+
+            # Force 'All' filter and disable it
+            if self.radio_all:
+                self.radio_all.setChecked(True)
+
+            # Ensure Discord UI is hidden
+            if hasattr(self, 'discord_scope_toggle_button'):
+                self.discord_scope_toggle_button.setVisible(False)
+            if hasattr(self, 'save_discord_as_pdf_btn'):
+                self.save_discord_as_pdf_btn.setVisible(False)
+            
+            return  # CRUCIAL: Stop here for specialized URLs
+
+        # --- Logic for Standard Downloaders (Kemono, Coomer, Discord) ---
+        
+        # First, re-enable all managed widgets as a baseline
+        for widget in widgets_to_manage:
+            if widget:
+                widget.setEnabled(True)
+
+        # Now, apply context-specific rules for the standard downloaders
+        is_discord = (service == 'discord')
+        if hasattr(self, 'discord_scope_toggle_button'):
+            self.discord_scope_toggle_button.setVisible(is_discord)
+        if hasattr(self, 'save_discord_as_pdf_btn'):
+            self.save_discord_as_pdf_btn.setVisible(is_discord)
+
+        if is_discord:
+            self._update_discord_scope_button_text()
+        else:
+            self.download_btn.setText(self._tr("start_download_button_text", "⬇️ Start Download"))
+
+        # Re-run all the standard UI state functions to apply the correct logic
+        is_manga_checked = self.manga_mode_checkbox.isChecked() if self.manga_mode_checkbox else False
+        is_subfolder_checked = self.use_subfolders_checkbox.isChecked() if self.use_subfolders_checkbox else False
+        is_cookie_checked = self.use_cookie_checkbox.isChecked() if self.use_cookie_checkbox else False
+        
+        self.update_ui_for_manga_mode(is_manga_checked)
+        self.update_custom_folder_visibility()
+        self.update_page_range_enabled_state()
+        if self.radio_group and self.radio_group.checkedButton():
+             self._handle_filter_mode_change(self.radio_group.checkedButton(), True)
+        self.update_ui_for_subfolders(is_subfolder_checked)
+        self._update_cookie_input_visibility(is_cookie_checked)
+
     def start_single_threaded_download (self ,**kwargs ):
         global BackendDownloadThread 
         try :
@@ -4823,6 +5050,18 @@ class DownloaderApp (QWidget ):
 
         if isinstance(self.download_thread, NhentaiDownloadThread): 
             self.log_signal.emit("    Signaling nhentai download thread to cancel.")
+            self.download_thread.cancel()
+
+        if isinstance(self.download_thread, BunkrDownloadThread):
+            self.log_signal.emit("    Signaling Bunkr download thread to cancel.")
+            self.download_thread.cancel()
+
+        if isinstance(self.download_thread, Saint2DownloadThread):
+            self.log_signal.emit("    Signaling Saint2 download thread to cancel.")
+            self.download_thread.cancel()
+
+        if isinstance(self.download_thread, EromeDownloadThread):
+            self.log_signal.emit("    Signaling Erome download thread to cancel.")
             self.download_thread.cancel()
 
     def _get_domain_for_service(self, service_name: str) -> str:
@@ -5938,6 +6177,325 @@ class DownloaderApp (QWidget ):
             self.log_signal.emit(f"⚠️ Failed to initiate download for '{item_display_name}'. Skipping and moving to the next item in queue.")
             # Use a QTimer to avoid deep recursion and correctly move to the next item.
             QTimer.singleShot(100, self._process_next_favorite_download)
+
+class Saint2DownloadThread(QThread):
+    """A dedicated QThread for handling saint2.su downloads."""
+    progress_signal = pyqtSignal(str)
+    file_progress_signal = pyqtSignal(str, object)
+    finished_signal = pyqtSignal(int, int, bool) # dl_count, skip_count, cancelled
+
+    def __init__(self, url, output_dir, parent=None):
+        super().__init__(parent)
+        self.saint2_url = url
+        self.output_dir = output_dir
+        self.is_cancelled = False
+
+    def run(self):
+        download_count = 0
+        skip_count = 0
+        self.progress_signal.emit("=" * 40)
+        self.progress_signal.emit(f"🚀 Starting Saint2.su Download for: {self.saint2_url}")
+        
+        # Use the new client to get the download info
+        album_name, files_to_download = fetch_saint2_data(self.saint2_url, self.progress_signal.emit)
+        
+        if not files_to_download:
+            self.progress_signal.emit("❌ Failed to extract file information from Saint2. Aborting.")
+            self.finished_signal.emit(0, 0, self.is_cancelled)
+            return
+
+        # For single media, album_name is the title; for albums, it's the album title
+        album_path = os.path.join(self.output_dir, album_name)
+        try:
+            os.makedirs(album_path, exist_ok=True)
+            self.progress_signal.emit(f"   Saving to folder: '{album_path}'")
+        except OSError as e:
+            self.progress_signal.emit(f"❌ Critical error creating directory: {e}")
+            self.finished_signal.emit(0, len(files_to_download), self.is_cancelled)
+            return
+
+        total_files = len(files_to_download)
+        session = requests.Session()
+
+        for i, file_data in enumerate(files_to_download):
+            if self.is_cancelled:
+                self.progress_signal.emit("   Download cancelled by user.")
+                skip_count = total_files - download_count
+                break
+
+            filename = file_data.get('filename', f'untitled_{i+1}.mp4')
+            file_url = file_data.get('url')
+            headers = file_data.get('headers')
+            filepath = os.path.join(album_path, filename)
+            
+            if os.path.exists(filepath):
+                self.progress_signal.emit(f"   -> Skip ({i+1}/{total_files}): '{filename}' already exists.")
+                skip_count += 1
+                continue
+
+            self.progress_signal.emit(f"   Downloading ({i+1}/{total_files}): '{filename}'...")
+            
+            try:
+                response = session.get(file_url, stream=True, headers=headers, timeout=60)
+                response.raise_for_status()
+
+                total_size = int(response.headers.get('content-length', 0))
+                downloaded_size = 0
+                last_update_time = time.time()
+
+                with open(filepath, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if self.is_cancelled:
+                            break
+                        if chunk:
+                            f.write(chunk)
+                            downloaded_size += len(chunk)
+                            current_time = time.time()
+                            if total_size > 0 and (current_time - last_update_time) > 0.5:
+                                self.file_progress_signal.emit(filename, (downloaded_size, total_size))
+                                last_update_time = current_time
+                
+                if self.is_cancelled:
+                    if os.path.exists(filepath): os.remove(filepath)
+                    continue
+                
+                if total_size > 0:
+                    self.file_progress_signal.emit(filename, (total_size, total_size))
+
+                download_count += 1
+            except requests.exceptions.RequestException as e:
+                self.progress_signal.emit(f"   ❌ Failed to download '{filename}'. Error: {e}")
+                if os.path.exists(filepath): os.remove(filepath)
+                skip_count += 1
+            except Exception as e:
+                self.progress_signal.emit(f"   ❌ An unexpected error occurred with '{filename}': {e}")
+                if os.path.exists(filepath): os.remove(filepath)
+                skip_count += 1
+        
+        self.file_progress_signal.emit("", None)
+        self.finished_signal.emit(download_count, skip_count, self.is_cancelled)
+
+    def cancel(self):
+        self.is_cancelled = True
+        self.progress_signal.emit("   Cancellation signal received by Saint2 thread.")
+
+class EromeDownloadThread(QThread):
+    """A dedicated QThread for handling erome.com downloads."""
+    progress_signal = pyqtSignal(str)
+    file_progress_signal = pyqtSignal(str, object)
+    finished_signal = pyqtSignal(int, int, bool) # dl_count, skip_count, cancelled
+
+    def __init__(self, url, output_dir, parent=None):
+        super().__init__(parent)
+        self.erome_url = url
+        self.output_dir = output_dir
+        self.is_cancelled = False
+
+    def run(self):
+        download_count = 0
+        skip_count = 0
+        self.progress_signal.emit("=" * 40)
+        self.progress_signal.emit(f"🚀 Starting Erome.com Download for: {self.erome_url}")
+        
+        album_name, files_to_download = fetch_erome_data(self.erome_url, self.progress_signal.emit)
+        
+        if not files_to_download:
+            self.progress_signal.emit("❌ Failed to extract file information from Erome. Aborting.")
+            self.finished_signal.emit(0, 0, self.is_cancelled)
+            return
+
+        album_path = os.path.join(self.output_dir, album_name)
+        try:
+            os.makedirs(album_path, exist_ok=True)
+            self.progress_signal.emit(f"   Saving to folder: '{album_path}'")
+        except OSError as e:
+            self.progress_signal.emit(f"❌ Critical error creating directory: {e}")
+            self.finished_signal.emit(0, len(files_to_download), self.is_cancelled)
+            return
+
+        total_files = len(files_to_download)
+        session = requests.Session()
+
+        for i, file_data in enumerate(files_to_download):
+            if self.is_cancelled:
+                self.progress_signal.emit("   Download cancelled by user.")
+                skip_count = total_files - download_count
+                break
+
+            filename = file_data.get('filename', f'untitled_{i+1}.mp4')
+            file_url = file_data.get('url')
+            headers = file_data.get('headers')
+            filepath = os.path.join(album_path, filename)
+            
+            if os.path.exists(filepath):
+                self.progress_signal.emit(f"   -> Skip ({i+1}/{total_files}): '{filename}' already exists.")
+                skip_count += 1
+                continue
+
+            self.progress_signal.emit(f"   Downloading ({i+1}/{total_files}): '{filename}'...")
+            
+            try:
+                response = session.get(file_url, stream=True, headers=headers, timeout=60)
+                response.raise_for_status()
+
+                total_size = int(response.headers.get('content-length', 0))
+                downloaded_size = 0
+                last_update_time = time.time()
+
+                with open(filepath, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if self.is_cancelled:
+                            break
+                        if chunk:
+                            f.write(chunk)
+                            downloaded_size += len(chunk)
+                            current_time = time.time()
+                            if total_size > 0 and (current_time - last_update_time) > 0.5:
+                                self.file_progress_signal.emit(filename, (downloaded_size, total_size))
+                                last_update_time = current_time
+                
+                if self.is_cancelled:
+                    if os.path.exists(filepath): os.remove(filepath)
+                    continue
+                
+                if total_size > 0:
+                    self.file_progress_signal.emit(filename, (total_size, total_size))
+
+                download_count += 1
+            except requests.exceptions.RequestException as e:
+                self.progress_signal.emit(f"   ❌ Failed to download '{filename}'. Error: {e}")
+                if os.path.exists(filepath): os.remove(filepath)
+                skip_count += 1
+            except Exception as e:
+                self.progress_signal.emit(f"   ❌ An unexpected error occurred with '{filename}': {e}")
+                if os.path.exists(filepath): os.remove(filepath)
+                skip_count += 1
+        
+        self.file_progress_signal.emit("", None)
+        self.finished_signal.emit(download_count, skip_count, self.is_cancelled)
+
+    def cancel(self):
+        self.is_cancelled = True
+        self.progress_signal.emit("   Cancellation signal received by Erome thread.")
+
+class BunkrDownloadThread(QThread):
+    """A dedicated QThread for handling Bunkr downloads."""
+    progress_signal = pyqtSignal(str)
+    # --- ADD THIS SIGNAL for detailed file progress ---
+    file_progress_signal = pyqtSignal(str, object)
+    finished_signal = pyqtSignal(int, int, bool, list)
+
+    def __init__(self, url, output_dir, parent=None):
+        super().__init__(parent)
+        self.bunkr_url = url
+        self.output_dir = output_dir
+        self.is_cancelled = False
+
+        class ThreadLogger:
+            def __init__(self, signal_emitter):
+                self.signal_emitter = signal_emitter
+            def info(self, msg, *args, **kwargs):
+                self.signal_emitter.emit(str(msg))
+            def error(self, msg, *args, **kwargs):
+                self.signal_emitter.emit(f"❌ ERROR: {msg}")
+            def warning(self, msg, *args, **kwargs):
+                self.signal_emitter.emit(f"⚠️ WARNING: {msg}")
+            def debug(self, msg, *args, **kwargs):
+                pass
+
+        self.logger = ThreadLogger(self.progress_signal)
+
+    def run(self):
+        download_count = 0
+        skip_count = 0
+        self.progress_signal.emit("=" * 40)
+        self.progress_signal.emit(f"🚀 Starting Bunkr Download for: {self.bunkr_url}")
+        
+        album_name, files_to_download = fetch_bunkr_data(self.bunkr_url, self.logger)
+        
+        if not files_to_download:
+            self.progress_signal.emit("❌ Failed to extract file information from Bunkr. Aborting.")
+            self.finished_signal.emit(0, 0, self.is_cancelled, [])
+            return
+
+        album_path = os.path.join(self.output_dir, album_name)
+        try:
+            os.makedirs(album_path, exist_ok=True)
+            self.progress_signal.emit(f"   Saving to folder: '{album_path}'")
+        except OSError as e:
+            self.progress_signal.emit(f"❌ Critical error creating directory: {e}")
+            self.finished_signal.emit(0, len(files_to_download), self.is_cancelled, [])
+            return
+
+        total_files = len(files_to_download)
+        for i, file_data in enumerate(files_to_download):
+            if self.is_cancelled:
+                self.progress_signal.emit("   Download cancelled by user.")
+                skip_count = total_files - download_count
+                break
+
+            filename = file_data.get('name', 'untitled_file')
+            file_url = file_data.get('url')
+            headers = file_data.get('_http_headers')
+            
+            filename = re.sub(r'[<>:"/\\|?*]', '_', filename).strip()
+            filepath = os.path.join(album_path, filename)
+            
+            if os.path.exists(filepath):
+                self.progress_signal.emit(f"   -> Skip ({i+1}/{total_files}): '{filename}' already exists.")
+                skip_count += 1
+                continue
+
+            self.progress_signal.emit(f"   Downloading ({i+1}/{total_files}): '{filename}'...")
+            
+            try:
+                response = requests.get(file_url, stream=True, headers=headers, timeout=60)
+                response.raise_for_status()
+
+                # --- MODIFY THIS BLOCK to calculate and emit progress ---
+                total_size = int(response.headers.get('content-length', 0))
+                downloaded_size = 0
+                last_update_time = time.time()
+
+                with open(filepath, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if self.is_cancelled:
+                            break
+                        if chunk:
+                            f.write(chunk)
+                            downloaded_size += len(chunk)
+                            current_time = time.time()
+                            if total_size > 0 and (current_time - last_update_time) > 0.5:
+                                self.file_progress_signal.emit(filename, (downloaded_size, total_size))
+                                last_update_time = current_time
+                
+                if self.is_cancelled:
+                    if os.path.exists(filepath): os.remove(filepath)
+                    continue
+
+                # Emit final progress to show 100%
+                if total_size > 0:
+                    self.file_progress_signal.emit(filename, (total_size, total_size))
+
+                download_count += 1
+                # --- END MODIFICATION ---
+
+            except requests.exceptions.RequestException as e:
+                self.progress_signal.emit(f"   ❌ Failed to download '{filename}'. Error: {e}")
+                if os.path.exists(filepath): os.remove(filepath)
+                skip_count += 1
+            except Exception as e:
+                self.progress_signal.emit(f"   ❌ An unexpected error occurred with '{filename}': {e}")
+                if os.path.exists(filepath): os.remove(filepath)
+                skip_count += 1
+        
+        # Clear the progress label when finished
+        self.file_progress_signal.emit("", None)
+        self.finished_signal.emit(download_count, skip_count, self.is_cancelled, [])
+
+    def cancel(self):
+        self.is_cancelled = True
+        self.progress_signal.emit("   Cancellation signal received by Bunkr thread.")
 
 class ExternalLinkDownloadThread (QThread ):
     """A QThread to handle downloading multiple external links sequentially."""

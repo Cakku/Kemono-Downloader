@@ -138,42 +138,54 @@ def prepare_cookies_for_request(use_cookie_flag, cookie_text_input, selected_coo
     return None
 
 
+# In src/utils/network_utils.py
+
 def extract_post_info(url_string):
     """
     Parses a URL string to extract the service, user ID, and post ID.
-    UPDATED to support Discord server/channel URLs.
+    UPDATED to support Discord, Bunkr, and nhentai URLs.
 
     Args:
         url_string (str): The URL to parse.
 
     Returns:
-        tuple: A tuple containing (service, id1, id2). 
+        tuple: A tuple containing (service, id1, id2).
                For posts: (service, user_id, post_id).
                For Discord: ('discord', server_id, channel_id).
+               For Bunkr: ('bunkr', full_url, None).
+               For nhentai: ('nhentai', gallery_id, None).
     """
     if not isinstance(url_string, str) or not url_string.strip():
         return None, None, None
-    
-    try:
-        parsed_url = urlparse(url_string.strip())
-        path_parts = [part for part in parsed_url.path.strip('/').split('/') if part]
-        
-        # Check for new Discord URL format first
-        # e.g., /discord/server/891670433978531850/1252332668805189723
-        if len(path_parts) >= 3 and path_parts[0].lower() == 'discord' and path_parts[1].lower() == 'server':
-            service = 'discord'
-            server_id = path_parts[2]
-            channel_id = path_parts[3] if len(path_parts) >= 4 else None
-            return service, server_id, channel_id
 
-        # Standard creator/post format: /<service>/user/<user_id>/post/<post_id>
+    stripped_url = url_string.strip()
+
+    # --- Bunkr Check ---
+    bunkr_pattern = re.compile(
+        r"(?:https?://)?(?:[a-zA-Z0-9-]+\.)?bunkr\.(?:si|la|ws|red|black|media|site|is|to|ac|cr|ci|fi|pk|ps|sk|ph|su|ru)|bunkrr\.ru"
+    )
+    if bunkr_pattern.search(stripped_url):
+        return 'bunkr', stripped_url, None
+
+    # --- nhentai Check ---
+    nhentai_match = re.search(r'nhentai\.net/g/(\d+)', stripped_url)
+    if nhentai_match:
+        return 'nhentai', nhentai_match.group(1), None
+
+    # --- Kemono/Coomer/Discord Parsing ---
+    try:
+        parsed_url = urlparse(stripped_url)
+        path_parts = [part for part in parsed_url.path.strip('/').split('/') if part]
+
+        if len(path_parts) >= 3 and path_parts[0].lower() == 'discord' and path_parts[1].lower() == 'server':
+            return 'discord', path_parts[2], path_parts[3] if len(path_parts) >= 4 else None
+
         if len(path_parts) >= 3 and path_parts[1].lower() == 'user':
             service = path_parts[0]
             user_id = path_parts[2]
             post_id = path_parts[4] if len(path_parts) >= 5 and path_parts[3].lower() == 'post' else None
             return service, user_id, post_id
-            
-        # API format: /api/v1/<service>/user/<user_id>...
+
         if len(path_parts) >= 5 and path_parts[0:2] == ['api', 'v1'] and path_parts[3].lower() == 'user':
             service = path_parts[2]
             user_id = path_parts[4]
@@ -184,7 +196,7 @@ def extract_post_info(url_string):
         print(f"Debug: Exception during URL parsing for '{url_string}': {e}")
 
     return None, None, None
-
+    
 def get_link_platform(url):
     """
     Identifies the platform of a given URL based on its domain.
