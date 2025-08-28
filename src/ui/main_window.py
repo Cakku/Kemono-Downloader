@@ -6314,7 +6314,7 @@ class EromeDownloadThread(QThread):
             return
 
         total_files = len(files_to_download)
-        session = requests.Session()
+        session = cloudscraper.create_scraper()
 
         for i, file_data in enumerate(files_to_download):
             if self.is_cancelled:

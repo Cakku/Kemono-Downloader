@@ -1,4 +1,3 @@
-# src/core/erome_client.py
 
 import os
 import re
@@ -7,10 +6,8 @@ import time
 import urllib.parse
 import requests
 from datetime import datetime
+import cloudscraper
 
-# #############################################################################
-# SECTION: Utility functions adapted from the original script
-# #############################################################################
 
 def extr(txt, begin, end, default=""):
     """Stripped-down version of 'extract()' to find text between two delimiters."""
@@ -49,14 +46,10 @@ def nameext_from_url(url):
 def parse_timestamp(ts, default=None):
     """Creates a datetime object from a Unix timestamp."""
     try:
-        # Use fromtimestamp for simplicity and compatibility
         return datetime.fromtimestamp(int(ts))
     except (ValueError, TypeError):
         return default
 
-# #############################################################################
-# SECTION: Main Erome Fetching Logic
-# #############################################################################
 
 def fetch_erome_data(url, logger):
     """
@@ -78,15 +71,10 @@ def fetch_erome_data(url, logger):
     album_id = album_id_match.group(1)
     page_url = f"https://www.erome.com/a/{album_id}"
     
-    session = requests.Session()
-    session.headers.update({
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36",
-        "Referer": "https://www.erome.com/"
-    })
+    session = cloudscraper.create_scraper()
 
     try:
         logger(f"   Fetching Erome album page: {page_url}")
-        # Add a loop to handle "Please wait" pages
         for attempt in range(5):
             response = session.get(page_url, timeout=30)
             response.raise_for_status()
@@ -103,17 +91,14 @@ def fetch_erome_data(url, logger):
         title = html.unescape(extr(page_content, 'property="og:title" content="', '"'))
         user = urllib.parse.unquote(extr(page_content, 'href="https://www.erome.com/', '"', default="unknown_user"))
         
-        # Sanitize title and user for folder creation
         sanitized_title = re.sub(r'[<>:"/\\|?*]', '_', title).strip()
         sanitized_user = re.sub(r'[<>:"/\\|?*]', '_', user).strip()
         
         album_folder_name = f"Erome - {sanitized_user} - {sanitized_title} [{album_id}]"
         
         urls = []
-        # Split the page content by media groups to find all videos
         media_groups = page_content.split('<div class="media-group"')
-        for group in media_groups[1:]: # Skip the part before the first media group
-            # Prioritize <source> tag, fall back to data-src for images
+        for group in media_groups[1:]: 
             video_url = extr(group, '<source src="', '"') or extr(group, 'data-src="', '"')
             if video_url:
                 urls.append(video_url)
@@ -127,7 +112,6 @@ def fetch_erome_data(url, logger):
         file_list = []
         for i, file_url in enumerate(urls, 1):
             filename_info = nameext_from_url(file_url)
-            # Create a clean, descriptive filename
             filename = f"{album_id}_{sanitized_title}_{i:03d}.{filename_info.get('extension', 'mp4')}"
             
             file_data = {
