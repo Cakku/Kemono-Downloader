@@ -87,7 +87,7 @@
   <li>pip (Python package installer)</li>
 </ul>
 <h3>Install Dependencies</h3>
-<pre><code>pip install -r requirements.txt
+<pre><code>pip install PyQt5 requests cloudscraper Pillow fpdf2 python-docx
 </code></pre>
 <h3>Running the Application</h3>
 <p>Navigate to the application's directory in your terminal and run:</p>
