@@ -15,7 +15,6 @@ def fetch_nhentai_gallery(gallery_id, logger=print):
     """
     api_url = f"https://nhentai.net/api/gallery/{gallery_id}"
     
-    # Create a cloudscraper instance
     scraper = cloudscraper.create_scraper()
     
     logger(f"   Fetching nhentai gallery metadata from: {api_url}")

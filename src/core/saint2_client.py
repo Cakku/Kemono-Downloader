@@ -1,14 +1,9 @@
-# src/core/saint2_client.py
-
 import os
 import re as re_module
 import html
 import urllib.parse
 import requests
 
-# ##############################################################################
-# SECTION: Utility functions adapted from the original script
-# ##############################################################################
 
 PATTERN_CACHE = {}
 
@@ -45,10 +40,6 @@ def nameext_from_url(url):
     else:
         data["filename"], data["extension"] = filename, ""
     return data
-
-# ##############################################################################
-# SECTION: Extractor Logic adapted for the main application
-# ##############################################################################
 
 class BaseExtractor:
     """A simplified base class for extractors."""
@@ -165,7 +156,6 @@ def fetch_saint2_data(url, logger):
         if match:
             extractor = extractor_cls(match, session, logger)
             album_title, files = extractor.items()
-            # Sanitize the album title to be a valid folder name
             sanitized_title = re_module.sub(r'[<>:"/\\|?*]', '_', album_title) if album_title else "saint2_download"
             return sanitized_title, files
 

@@ -63,7 +63,6 @@ def parse_datetime(date_string, format="%Y-%m-%dT%H:%M:%S%z", utcoffset=0):
 unquote = urllib.parse.unquote
 unescape = html.unescape
 
-# --- From: util.py ---
 def decrypt_xor(encrypted, key, base64=True, fromhex=False):
     if base64: encrypted = binascii.a2b_base64(encrypted)
     if fromhex: encrypted = bytes.fromhex(encrypted.decode())
@@ -76,7 +75,6 @@ def advance(iterable, num):
 def json_loads(s): return json.loads(s)
 def json_dumps(obj): return json.dumps(obj, separators=(",", ":"))
 
-# --- From: common.py ---
 class Extractor:
     def __init__(self, match, logger):
         self.log = logger
@@ -116,7 +114,6 @@ class Extractor:
             if not kwargs.get("fatal", True): return {}
             raise
 
-# --- From: bunkr.py (Adapted) ---
 BASE_PATTERN_BUNKR = r"(?:https?://)?(?:[a-zA-Z0-9-]+\.)?(bunkr\.(?:si|la|ws|red|black|media|site|is|to|ac|cr|ci|fi|pk|ps|sk|ph|su)|bunkrr\.ru)"
 DOMAINS = ["bunkr.si", "bunkr.ws", "bunkr.la", "bunkr.red", "bunkr.black", "bunkr.media", "bunkr.site"]
 CF_DOMAINS = set()
@@ -195,10 +192,6 @@ class BunkrMediaExtractor(BunkrAlbumExtractor):
             self.log.error("%s: %s", exc.__class__.__name__, exc)
             yield MockMessage.Directory, {"album_name": "error", "count": 0}, {}
 
-# ==============================================================================
-# --- PUBLIC API FOR THE GUI ---
-# ==============================================================================
-
 def get_bunkr_extractor(url, logger):
     """Selects the correct Bunkr extractor based on the URL pattern."""
     if BunkrAlbumExtractor.pattern.match(url):
@@ -235,7 +228,6 @@ def fetch_bunkr_data(url, logger):
                 album_name = re.sub(r'[<>:"/\\|?*]', '_', raw_album_name).strip() or "untitled"
                 logger.info(f"Processing Bunkr album: {album_name}")
             elif msg_type == MockMessage.Url:
-                # data here is the file_data dictionary
                 files_to_download.append(data)
         
         if not files_to_download:
