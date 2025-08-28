@@ -1,162 +1,116 @@
-<h1 align="center">Kemono Downloader </h1>
+<h1 align="center">Kemono Downloader</h1>
 
 <div align="center">
-
-<table>
-  <tr>
-    <td align="center">
-      <img src="Read/Read.png" alt="Default Mode" width="400"><br>
-      <strong>Default</strong>
-    </td>
-    <td align="center">
-      <img src="Read/Read1.png" alt="Favorite Mode" width="400"><br>
-      <strong>Favorite Mode</strong>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="Read/Read2.png" alt="Single Post" width="400"><br>
-      <strong>Single Post</strong>
-    </td>
-    <td align="center">
-      <img src="Read/Read3.png" alt="Manga/Comic Mode" width="400"><br>
-      <strong>Manga/Comic Mode</strong>
-    </td>
-  </tr>
-</table>
-
+  <table>
+    <tbody>
+      <tr>
+        <td align="center">
+          <img src="Read/Read.png" alt="Default Mode" width="400"><br>
+          <strong>Default Mode</strong>
+        </td>
+        <td align="center">
+          <img src="Read/Read1.png" alt="Favorite Mode" width="400"><br>
+          <strong>Favorite Mode</strong>
+        </td>
+      </tr>
+      <tr>
+        <td align="center">
+          <img src="Read/Read2.png" alt="Single Post" width="400"><br>
+          <strong>Single Post</strong>
+        </td>
+        <td align="center">
+          <img src="Read/Read3.png" alt="Manga/Comic Mode" width="400"><br>
+          <strong>Manga/Comic Mode</strong>
+        </td>
+      </tr>
+    </tbody>
+  </table>
 </div>
 
----
+<hr>
 
-A powerful, feature-rich GUI application for downloading content from **[Kemono.su](https://kemono.su)** (and its mirrors like kemono.party) and **[Coomer.party](https://coomer.party)** (and its mirrors like coomer.su).
-
-Built with PyQt5, this tool is designed for users who want deep filtering capabilities, customizable folder structures, efficient downloads, and intelligent automation — all within a modern and user-friendly graphical interface.
+<p>A powerful, feature-rich GUI application for downloading content from a wide array of sites, including <strong>Kemono</strong>, <strong>Coomer</strong>, <strong>Bunkr</strong>, <strong>Erome</strong>, <strong>Saint2.su</strong>, and <strong>nhentai</strong>.</p>
+<p>Built with PyQt5, this tool is designed for users who want deep filtering capabilities, customizable folder structures, efficient downloads, and intelligent automation — all within a modern and user-friendly graphical interface.</p>
 
 <div align="center">
-
-[![](https://img.shields.io/badge/📚%20Full%20Feature%20List-FFD700?style=for-the-badge&logoColor=black&color=FFD700)](features.md)
-[![](https://img.shields.io/badge/📝%20License-90EE90?style=for-the-badge&logoColor=black&color=90EE90)](LICENSE)
-[![](https://img.shields.io/badge/⚠️%20Important%20Note-FFCCCB?style=for-the-badge&logoColor=black&color=FFCCCB)](note.md)
-
+    <a href="features.md"><img src="https://img.shields.io/badge/📚%20Full%20Feature%20List-FFD700?style=for-the-badge&logoColor=black&color=FFD700" alt="Full Feature List"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/📝%20License-90EE90?style=for-the-badge&logoColor=black&color=90EE90" alt="License"></a>
+    <a href="note.md"><img src="https://img.shields.io/badge/⚠️%20Important%20Note-FFCCCB?style=for-the-badge&logoColor=black&color=FFCCCB" alt="Important Note"></a>
 </div>
 
-<h2><strong>Core Capabilities Overview</strong></h2>
-
-<h3><strong>High-Performance Downloading</strong></h3>
+<h2>Core Capabilities Overview</h2>
+<h3>High-Performance &amp; Resilient Downloading</h3>
 <ul>
   <li><strong>Multi-threading:</strong> Processes multiple posts simultaneously to greatly accelerate downloads from large creator profiles.</li>
   <li><strong>Multi-part Downloading:</strong> Splits large files into chunks and downloads them in parallel to maximize speed.</li>
-  <li><strong>Resilience:</strong> Supports pausing, resuming, and restoring downloads after crashes or interruptions.</li>
+  <li><strong>Session Management:</strong> Supports pausing, resuming, and <strong>restoring downloads</strong> after crashes or interruptions, so you never lose your progress.</li>
 </ul>
-
-<h3><strong>Advanced Filtering & Content Control</strong></h3>
+<h3>Expanded Site Support</h3>
+<ul>
+  <li><strong>Direct Downloading:</strong> Full support for Kemono, Coomer, Bunkr, Erome, Saint2.su, and nhentai.</li>
+  <li><strong>Batch Mode:</strong> Download hundreds of URLs at once from <code>nhentai.txt</code> or <code>saint2.su.txt</code> files.</li>
+  <li><strong>Discord Support:</strong> Download files or save entire channel histories as PDFs directly through the API.</li>
+</ul>
+<h3>Advanced Filtering &amp; Content Control</h3>
 <ul>
   <li><strong>Content Type Filtering:</strong> Select whether to download all files or limit to images, videos, audio, or archives only.</li>
   <li><strong>Keyword Skipping:</strong> Automatically skips posts or files containing certain keywords (e.g., "WIP", "sketch").</li>
-  <li><strong>Character Filtering:</strong> Restricts downloads to posts that match specific character or series names.</li>
+  <li><strong>Skip by Size:</strong> Avoid small files by setting a minimum size threshold in MB (e.g., <code>[200]</code>).</li>
+  <li><strong>Character Filtering:</strong> Restricts downloads to posts that match specific character or series names, with scope controls for title, filename, or comments.</li>
 </ul>
-
-<h3><strong>File Organization & Renaming</strong></h3>
+<h3>Intelligent File Organization</h3>
 <ul>
   <li><strong>Automated Subfolders:</strong> Automatically organizes downloaded files into subdirectories based on character names or per post.</li>
-  <li><strong>Advanced File Renaming:</strong> Flexible renaming options, especially in Manga Mode, including:
-    <ul>
-      <li><strong>Post Title:</strong> Uses the post's title (e.g., <code>Chapter-One.jpg</code>).</li>
-      <li><strong>Date + Original Name:</strong> Prepends the publication date to the original filename.</li>
-      <li><strong>Date + Title:</strong> Combines the date with the post title.</li>
-      <li><strong>Sequential Numbering (Date Based):</strong> Simple sequence numbers (e.g., <code>001.jpg</code>, <code>002.jpg</code>).</li>
-      <li><strong>Title + Global Numbering:</strong> Uses post title with a globally incrementing number across the session.</li>
-      <li><strong>Post ID:</strong> Names files using the post’s unique ID.</li>
-    </ul>
-  </li>
+  <li><strong>Advanced File Renaming:</strong> Flexible renaming options, especially in Manga Mode, including by post title, date, sequential numbering, or post ID.</li>
+  <li><strong>Filename Cleaning:</strong> Automatically removes unwanted text from filenames.</li>
 </ul>
-
-<h3><strong>Specialized Modes</strong></h3>
+<h3>Specialized Modes</h3>
 <ul>
   <li><strong>Manga/Comic Mode:</strong> Sorts posts chronologically before downloading to ensure pages appear in the correct sequence.</li>
   <li><strong>Favorite Mode:</strong> Connects to your account and downloads from your favorites list (artists or posts).</li>
-  <li><strong>Link Extraction Mode:</strong> Extracts external links from posts for export or targeted downloading.</li>
+  <li><strong>Link Extraction Mode:</strong> Extracts external links (Mega, Google Drive) from posts for export or <strong>direct in-app downloading</strong>.</li>
   <li><strong>Text Extraction Mode:</strong> Saves post descriptions or comment sections as <code>PDF</code>, <code>DOCX</code>, or <code>TXT</code> files.</li>
 </ul>
-
-<h3><strong>Utility & Advanced Features</strong></h3>
+<h3>Utility &amp; Advanced Features</h3>
 <ul>
+  <li><strong>In-App Updater:</strong> Check for new versions directly from the settings menu.</li>
   <li><strong>Cookie Support:</strong> Enables access to subscriber-only content via browser session cookies.</li>
   <li><strong>Duplicate Detection:</strong> Prevents saving duplicate files using content-based comparison, with configurable limits.</li>
   <li><strong>Image Compression:</strong> Automatically converts large images to <code>.webp</code> to reduce disk usage.</li>
   <li><strong>Creator Management:</strong> Built-in creator browser and update checker for downloading only new posts from saved profiles.</li>
   <li><strong>Error Handling:</strong> Tracks failed downloads and provides a retry dialog with options to export or redownload missing files.</li>
 </ul>
-
-## 💻 Installation
-
-### Requirements
-
-- Python 3.6 or higher
-- pip (Python package installer)
-
-### Install Dependencies
-
-```bash
-pip install PyQt5 requests Pillow mega.py fpdf2 python-docx
-```
-
-### Running the Application
-Navigate to the application's directory in your terminal and run:
-```bash
-python main.py
-```
-
-### Optional Setup
--   **Main Inputs:**
--   Place your `cookies.txt` in the root directory (if using cookies).
--   Prepare your `Known.txt` and `creators.json` in the same directory for advanced filtering and selection features.
-
----
-
-## Troubleshooting
-
-### AttributeError: module 'asyncio' has no attribute 'coroutine'
-
-If you encounter an error message similar to:
-```
-AttributeError: module 'asyncio' has no attribute 'coroutine'. Did you mean: 'coroutines'?
-```
-This usually means that a dependency, often `tenacity` (used by `mega.py`), is an older version that's incompatible with your Python version (typically Python 3.10+).
-
-To fix this, activate your virtual environment and run the following commands to upgrade the libraries:
-
-```bash
-pip install --upgrade tenacity
-pip install --upgrade mega.py
-```
-
----
-
-## Contribution
-
-Feel free to fork this repo and submit pull requests for bug fixes, new features, or UI improvements!
-
----
-
-## License
-
-This project is under the MIT Licence
-
-## Star History
-
+<h2>💻 Installation</h2>
+<h3>Requirements</h3>
+<ul>
+  <li>Python 3.6 or higher</li>
+  <li>pip (Python package installer)</li>
+</ul>
+<h3>Install Dependencies</h3>
+<pre><code>pip install -r requirements.txt
+</code></pre>
+<h3>Running the Application</h3>
+<p>Navigate to the application's directory in your terminal and run:</p>
+<pre><code>python main.py
+</code></pre>
+<h2>Contribution</h2>
+<p>Feel free to fork this repo and submit pull requests for bug fixes, new features, or UI improvements!</p>
+<h2>License</h2>
+<p>This project is under the MIT Licence</p>
+<h2>Star History</h2>
 <table align="center" style="border-collapse: collapse; border: none; margin-left: auto; margin-right: auto;">
-  <tr>
-    <td align="center" valign="middle" style="padding: 10px; border: none;">
-      <a href="https://www.star-history.com/#Yuvi9587/Kemono-Downloader&Date">
-        <img src="https://api.star-history.com/svg?repos=Yuvi9587/Kemono-Downloader&type=Date" alt="Star History Chart" width="650">
-      </a>
+  <tbody>
+    <tr>
+      <td align="center" valign="middle" style="padding: 10px; border: none;">
+        <a href="https://www.star-history.com/#Yuvi9587/Kemono-Downloader&amp;Date">
+          <img src="https://api.star-history.com/svg?repos=Yuvi9587/Kemono-Downloader&amp;type=Date" alt="Star History Chart" width="650">
+        </a>
+      </td>
+    </tr>
+  </tbody>
 </table>
-
 <p align="center">
   <a href="https://buymeacoffee.com/yuvi9587">
-    <img src="https://img.shields.io/badge/🍺%20Buy%20Me%20a%20Coffee-FFCCCB?style=for-the-badge&logoColor=black&color=FFDD00" alt="Buy Me a Coffee">
+    <img src="https://img.shields.io/badge/🍺%20Buy%20Me%20a%20Coffee-FFCCCB?style=for-the-badge&amp;logoColor=black&amp;color=FFDD00" alt="Buy Me a Coffee">
   </a>
 </p>
-
