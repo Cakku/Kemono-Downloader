@@ -247,7 +247,7 @@ def setup_ui(main_app):
     advanced_row1_layout.addWidget(main_app.use_subfolder_per_post_checkbox)
 
     main_app.date_prefix_checkbox = QCheckBox("Date Prefix")
-    main_app.date_prefix_checkbox.setToolTip("When 'Subfolder per Post' is active, prefix the folder name with the post's upload date.")
+    main_app.date_prefix_checkbox.setToolTip("Prefix folder names (when using subfolders) or filenames (when not using subfolders) with the post's upload date.")
     advanced_row1_layout.addWidget(main_app.date_prefix_checkbox)
     
     main_app.use_subfolders_checkbox = QCheckBox("Separate Folders by Known.txt")

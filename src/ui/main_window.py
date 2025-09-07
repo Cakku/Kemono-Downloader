@@ -2811,8 +2811,10 @@ class DownloaderApp (QWidget ):
                 self .use_subfolder_per_post_checkbox .setChecked (False )
 
         if hasattr(self, 'date_prefix_checkbox'):
-            can_enable_date_prefix = self.use_subfolder_per_post_checkbox.isEnabled() and self.use_subfolder_per_post_checkbox.isChecked()
+            # Enable date prefix when either subfolders are enabled OR when subfolders are disabled (for filename prefixing)
+            can_enable_date_prefix = self.use_subfolder_per_post_checkbox.isEnabled()
             self.date_prefix_checkbox.setEnabled(can_enable_date_prefix)
+            # Only uncheck if subfolders are disabled and we're in a mode that doesn't support filename prefixing
             if not can_enable_date_prefix:
                 self.date_prefix_checkbox.setChecked(False)
 

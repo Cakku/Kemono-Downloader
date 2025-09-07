@@ -448,6 +448,19 @@ class PostProcessorWorker:
                 else:
                     filename_to_save_in_main_path = cleaned_original_api_filename
                     was_original_name_kept_flag = True
+                
+                # Apply date prefix to filename when not using subfolders
+                if self.use_date_prefix_for_subfolder and not self.use_post_subfolders:
+                    published_date_str = self.post.get('published') or self.post.get('added')
+                    if published_date_str:
+                        try:
+                            date_prefix = published_date_str.split('T')[0]
+                            base_name, ext = os.path.splitext(filename_to_save_in_main_path)
+                            filename_to_save_in_main_path = f"{date_prefix} {base_name}{ext}"
+                        except Exception as e:
+                            self.logger(f"   ⚠️ Could not parse date '{published_date_str}' for filename prefix. Using original name. Error: {e}")
+                    else:
+                        self.logger("   ⚠️ 'Date Prefix' is checked, but post has no 'published' or 'added' date. Omitting prefix.")
 
             if self.remove_from_filename_words_list and filename_to_save_in_main_path:
                 base_name_for_removal, ext_for_removal = os.path.splitext(filename_to_save_in_main_path)
